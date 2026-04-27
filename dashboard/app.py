@@ -5,7 +5,42 @@ import pandas as pd
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="Recs (local admin)", layout="wide")
+st.set_page_config(
+    page_title="Movie recs — live",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.markdown(
+    """
+<style>
+  .block-container { padding-top: 1.25rem; }
+  h1 { letter-spacing: -0.02em; }
+  div[data-testid="stMetric"] {
+    background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0.85rem 1rem 1rem;
+    border-top: 3px solid #6366f1;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+  [data-testid="stMetricLabel"] p {
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b !important;
+  }
+  [data-testid="stMetricValue"] p {
+    font-size: 1.65rem !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+  }
+  .stSubheader { margin-top: 0.25rem; }
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 
 def _api_base() -> str:
@@ -17,18 +52,22 @@ def _api_base() -> str:
 
 API_BASE = _api_base()
 
-st.title("Movie recs — local admin")
+st.title("Movie recs")
+st.caption(f"Live API · [OpenAPI docs]({API_BASE}/docs) · [health]({API_BASE}/health)")
+
+main_tab, bench_tab = st.tabs(["Main", "Performance (Locust)"])
+
 
 @st.cache_data(ttl=3)
 def _fetch_json(url: str) -> dict:
-    response = requests.get(url, timeout=5)
+    response = requests.get(url, timeout=10)
     response.raise_for_status()
     return response.json()
 
 
 @st.cache_data(ttl=3)
 def _fetch_text(url: str) -> str:
-    response = requests.get(url, timeout=5)
+    response = requests.get(url, timeout=10)
     response.raise_for_status()
     return response.text
 
@@ -45,13 +84,12 @@ def _extract_metric_value(metrics_text: str, metric_name: str, selectors: list[s
             return 0.0
     return 0.0
 
+
 root_dir = Path(__file__).resolve().parents[1]
 bench_png = root_dir / "docs" / "benchmarks" / "locust-1000rps.png"
 
-main_tab, bench_tab = st.tabs(["Main", "Performance (Locust)"])
-
 with main_tab:
-    with st.spinner("Loading metrics..."):
+    with st.spinner("Loading metrics…"):
         try:
             ab = _fetch_json(f"{API_BASE}/admin/ab/results")
         except Exception as exc:  # noqa: BLE001
@@ -65,7 +103,6 @@ with main_tab:
             st.caption(str(exc))
             metrics_text = ""
 
-    # Top KPI row
     if metrics_text:
         hit_count = _extract_metric_value(
             metrics_text, "reco_cache_hits_total", ['kind="recommendation"']
@@ -105,10 +142,54 @@ with main_tab:
         avg_latency_ms = 0.0
         total_interactions = 0.0
 
+    st.markdown("##### Observability")
     kpi1, kpi2, kpi3 = st.columns(3)
-    kpi1.metric("Average Latency", f"{avg_latency_ms:.2f} ms")
-    kpi2.metric("Cache Hit Rate", f"{cache_hit_rate:.1f}%")
-    kpi3.metric("Total Interactions", f"{int(total_interactions)}")
+    kpi1.metric("Avg latency (recs)", f"{avg_latency_ms:.2f} ms")
+    kpi2.metric("Cache hit rate (recs)", f"{cache_hit_rate:.1f}%")
+    kpi3.metric("Ratings recorded (POST)", f"{int(total_interactions)}")
+
+    with st.expander("How CTR & A/B data get populated", expanded=False):
+        st.markdown(
+            """
+1. **Impressions:** each **`GET /recommendations/{user_id}`** (including from the widgets below) increments A/B impressions for the served strategy.
+2. **Clicks:** **`POST /users/{id}/interactions`** with a **rating ≥ 3.5** counts as a click for that user’s bucket strategy (movie must exist in the API DB—use a `movie_id` from the recs table or ingest data first).
+3. **Manual tries:** use **[OpenAPI docs](%s)** → *Try it out*, or **`curl`**, or the form below.
+            """
+            % API_BASE
+        )
+        st.code(
+            f'curl -sS -X POST "{API_BASE}/users/1/interactions" \\\n'
+            f'  -H "Content-Type: application/json" \\\n'
+            f'  -d \'{{"movie_id": 1, "rating": 4.0}}\'',
+            language="bash",
+        )
+
+    with st.expander("Record a rating (POST /users/{id}/interactions)", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            post_uid = st.number_input("User ID", min_value=1, value=1, key="post_uid")
+        with c2:
+            post_mid = st.number_input("Movie ID", min_value=1, value=1, key="post_mid")
+        with c3:
+            post_rating = st.slider("Rating", 0.5, 5.0, 4.0, 0.5, key="post_rating")
+        st.caption("Unknown `movie_id` returns 404 from the API (DB must contain that movie).")
+        if st.button("Submit rating", type="primary", key="post_btn"):
+            try:
+                r = requests.post(
+                    f"{API_BASE}/users/{int(post_uid)}/interactions",
+                    json={"movie_id": int(post_mid), "rating": float(post_rating)},
+                    timeout=15,
+                )
+            except Exception as exc:  # noqa: BLE001
+                st.error("Request failed.")
+                st.caption(str(exc))
+            else:
+                if r.ok:
+                    st.success("Recorded. Metrics refresh in a few seconds.")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(f"{r.status_code}: {r.text}")
 
     st.markdown("### CTR by strategy (A/B bucket)")
     ctr = ab.get("ctr", {}) if ab else {}
@@ -134,7 +215,7 @@ with main_tab:
         )
         .set_index("strategy")
     )
-    st.bar_chart(ctr_df)
+    st.bar_chart(ctr_df, height=280)
 
     left, right = st.columns(2)
     with left:
@@ -149,7 +230,7 @@ with main_tab:
             st.error("Could not load recommendations.")
             st.caption(str(exc))
             rec = {}
-        st.dataframe(pd.DataFrame(rec.get("items", [])))
+        st.dataframe(pd.DataFrame(rec.get("items", [])), use_container_width=True)
 
     with right:
         st.subheader("Why these recs")
@@ -174,11 +255,9 @@ with main_tab:
                 f"Explanation: {item.get('explanation', 'N/A')}"
             )
 
-    st.subheader("A/B JSON (raw)")
-    st.json(ab)
-
-    st.subheader("/metrics (truncated)")
-    st.text((metrics_text or "")[:5000])
+    with st.expander("Raw A/B JSON & metrics (debug)", expanded=False):
+        st.json(ab)
+        st.text((metrics_text or "")[:5000])
 
 with bench_tab:
     st.subheader("Performance (Locust)")
