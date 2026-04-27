@@ -128,6 +128,8 @@ After **[Publish API image to GHCR](.github/workflows/publish-ghcr.yml)** runs o
 1. **Recommended (simple):** Open **your GitHub profile’s Packages tab** (not repo *code* search): `https://github.com/Rickyganta?tab=packages` → **`realtime-ml-api`** → **Package settings** → **Change package visibility** → **Public**. Making the image **public** does **not** expose Railway URLs or database passwords; those live only in Railway **Variables**. The image layers match what’s already in this public repo (no secrets in the Dockerfile). Redeploy on Railway — no registry token needed.
 
    If there is **no package** yet, run **Actions → “Publish API image to GHCR”** on `main` (or push a commit) and wait until it’s green.
+
+   If the workflow **fails immediately** with permission / push errors: GitHub → repo **Settings → Actions → General** → **Workflow permissions** → select **Read and write permissions** (needed so `GITHUB_TOKEN` can push packages). Save, then **Re-run jobs** on the failed workflow.
 2. **Keep private (Pro):** Railway → your service → **Settings** → **Source** → **Registry credentials** → paste a GitHub **PAT** with **`read:packages`** in the **GitHub Access Token** field ([Railway: private registries](https://docs.railway.com/builds/private-registries)). PAT must be from a GitHub user that can read that package (e.g. **Rickyganta**).
 
 Also confirm **Actions** ran successfully and the package exists (open the package on GitHub and copy the exact image name if it differs).
