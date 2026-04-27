@@ -1,0 +1,45 @@
+{
+  "info": {
+    "name": "Real-Time Movie Recommendation API",
+    "_postman_id": "c9b8f33a-fc17-4db4-9b4f-001",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+    },
+    {
+      "name": "Record Interaction",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/users/1/interactions",
+        "body": { "mode": "raw", "raw": "{\"movie_id\":1,\"rating\":4.5}" }
+      }
+    },
+    {
+      "name": "Get Recommendations",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/recommendations/1?n=10&strategy=hybrid"
+      }
+    },
+    {
+      "name": "Explain Recommendations",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/recommendations/1/explain?strategy=hybrid"
+      }
+    },
+    {
+      "name": "Metrics",
+      "request": { "method": "GET", "url": "{{baseUrl}}/metrics" }
+    },
+    {
+      "name": "Admin Retrain",
+      "request": { "method": "POST", "url": "{{baseUrl}}/admin/retrain" }
+    }
+  ],
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:8000" }]
+}
