@@ -101,6 +101,13 @@ Then:
 
 If `uvicorn` / `streamlit` shims break after moving the repo folder, run `make repair-venv`. If you see `could not resolve host "postgres"`, your `.env` is using Docker hostnames outside Compose—use `localhost` for laptop runs (see `scripts/dev_api.sh`).
 
+## Streamlit Community Cloud
+
+The hosted app only needs **`dashboard/app.py`** plus `requirements.txt`. **`scikit-surprise` is intentionally not listed there**: Community Cloud often runs **Python 3.14**, and Surprise 1.1.4 fails to compile on that stack (Cython / NumPy typing errors). The **live API and dashboard** use **scikit-learn**, not Surprise.
+
+- **Secrets:** In the Cloud app settings, set **`API_BASE`** to a reachable URL for your FastAPI service (for example a deployed API or a tunnel to your laptop). The dashboard defaults to `http://localhost:8000`, which will not work from Cloud unless you proxy it.
+- **Python version:** In deploy **Advanced settings**, pick **3.11** or **3.12** if you ever add native extensions again; 3.14 is fine once Surprise is gone from `requirements.txt`.
+
 ## API (quick reference)
 
 - `POST /users/{id}/interactions` — record rating  
@@ -119,7 +126,11 @@ If `uvicorn` / `streamlit` shims break after moving the repo folder, run `make r
 
 ## Offline evaluation
 
-The notebook `notebooks/model_training_and_eval.ipynb` uses **Surprise SVD** for classic offline metrics. The **running API** uses the sklearn stack above—same dataset, different serving path.
+The notebook `notebooks/model_training_and_eval.ipynb` uses **Surprise SVD** for classic offline metrics. The **running API** uses the sklearn stack above—same dataset, different serving path. For local notebook work, install extras with:
+
+`pip install -r requirements-notebooks.txt`
+
+(Use **Python 3.11–3.13** for that file if `scikit-surprise` wheels fail on newer interpreters.)
 
 ## A/B methodology (summary)
 

@@ -1,0 +1,9 @@
+# Optional: local Jupyter notebook (MovieLens SVD / Surprise).
+# Install in a venv with Python 3.11–3.13 if Surprise wheels fail on newer Python:
+#   pip install -r requirements-notebooks.txt
+scikit-surprise
+jupyter
+matplotlib
+seaborn
+pandas
+numpy

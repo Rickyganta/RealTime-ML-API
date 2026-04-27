@@ -9,7 +9,6 @@ prometheus-client
 pandas
 numpy
 scikit-learn
-scikit-surprise
 python-multipart
 streamlit
 requests
