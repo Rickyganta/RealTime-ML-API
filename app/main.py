@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from starlette.responses import Response
+from starlette.responses import RedirectResponse, Response
 
 from app.core.config import settings
 from app.core.logging import configure_logging
@@ -74,6 +74,12 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
+
+@app.get("/")
+def root() -> RedirectResponse:
+    """Base URL is unversioned; send browsers to interactive API docs."""
+    return RedirectResponse(url="/docs")
 
 
 def _ensure_services() -> tuple[CacheClient, RecommenderService, RateLimiter]:
