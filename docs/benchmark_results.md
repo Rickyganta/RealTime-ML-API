@@ -1,16 +1,16 @@
 # Benchmark results (local)
 
-Recorded from a **long read-heavy Locust** run in Safari (aggregated and `GET /recommendations/101` in the same test).
+Recorded from a **long read-heavy Locust** run (aggregated and `GET /recommendations/101` in the same test). The README image is **cropped to the Locust stats table only** (no browser tabs or GitHub chrome).
 
 | Metric | Aggregated | `GET /recommendations/101` |
 |--------|------------|-----------------------------|
-| **# Requests** | 1,342,878 | 1,338,298 |
+| **# Requests** | 1,164,035 | 1,159,455 |
 | **# Fails** | 0 | 0 |
-| **Median (ms)** | 10 | 10 |
-| **p95 (ms)** | 54 | 54 |
-| **p99 (ms)** | 87 | 87 |
-| **Average (ms)** | 15.68 | 15.64 |
-| **Current RPS** | ~1,000.2 | ~1,000.2 |
+| **Median (ms)** | 11 | 11 |
+| **p95 (ms)** | 56 | 56 |
+| **p99 (ms)** | 89 | 89 |
+| **Average (ms)** | 16.31 | 16.28 |
+| **Current RPS** | ~1,000 | ~1,000 |
 
 Screenshot: `docs/benchmarks/locust-1000rps.png`
 

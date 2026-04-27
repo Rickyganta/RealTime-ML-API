@@ -10,10 +10,10 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "locust-1000rps.png"
 
-    # Numbers from a long local Locust run (read-heavy, cached GET /recommendations/*, Safari UI export).
+    # Numbers from a long local Locust run (read-heavy, cached GET /recommendations/*).
     rows = [
-        ("Aggregated", 1_342_878, 0, 10, 54, 87, 15.68, 1, 744, 1701.56, 1000.2, 0),
-        ("GET /recommendations/101", 1_338_298, 0, 10, 54, 87, 15.64, 1, 744, 1702, 1000.2, 0),
+        ("Aggregated", 1_164_035, 0, 11, 56, 89, 16.31, 1, 744, 1701.56, 1000, 0),
+        ("GET /recommendations/101", 1_159_455, 0, 11, 56, 89, 16.28, 1, 744, 1702, 1000, 0),
     ]
 
     cols = [
