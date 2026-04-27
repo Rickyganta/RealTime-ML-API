@@ -7,7 +7,15 @@ import streamlit as st
 
 st.set_page_config(page_title="Recs (local admin)", layout="wide")
 
-API_BASE = os.getenv("API_BASE", "http://localhost:8000")
+
+def _api_base() -> str:
+    # Streamlit Cloud: set API_BASE in Settings → Secrets (TOML). Also works via env locally.
+    if "API_BASE" in st.secrets:
+        return str(st.secrets["API_BASE"]).strip().rstrip("/")
+    return os.getenv("API_BASE", "http://localhost:8000").strip().rstrip("/")
+
+
+API_BASE = _api_base()
 
 st.title("Movie recs — local admin")
 
