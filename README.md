@@ -48,20 +48,42 @@ Set `LOADTEST_BYPASS_TOKEN` in `.env` and confirm with `curl -s http://127.0.0.1
 
 ## Demo video (Locust + RTML-API)
 
-Yes—you can embed a **playable** `.mov` / `.mp4` on the repo homepage by hosting it on GitHub’s attachment CDN, then pointing a `<video>` tag at that URL (GitHub allows this in READMEs for `user-attachments` links).
+You can embed a **playable** video on the repo homepage with a `<video>` tag whose `src` is a GitHub **`user-attachments`** URL from an issue comment ([GitHub: attaching files](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files)).
 
-Your recording: **`Locust test and RTML-API .mov`** on the Desktop (~50 MB).
+### Why you saw `Failed to upload`
 
-1. While signed into GitHub in the browser, open **[New issue](https://github.com/Rickyganta/RealTime-ML-API/issues/new)** for this repo.
-2. Drag **`Locust test and RTML-API .mov`** from Finder into the **Leave a comment** field and wait until the upload finishes (GitHub will insert a markdown link).
-3. Copy the URL that looks like `https://github.com/user-attachments/assets/…`. You can click **Cancel** on the draft issue—the attachment URL keeps working.
-4. Paste that URL into your README as the `src` below, commit, and push:
+For repos on a **free** GitHub plan, **videos attached to issues/PRs are limited to 10 MB**. Screen recordings are often **tens of MB**, so GitHub inserts `<!-- Failed to upload "…" -->` instead of a link. That is a **size limit**, not a broken `.mov` format by itself. (Paid plans allow larger video attachments per GitHub’s docs.)
+
+**Also:** your file is named `Locust test and RTML-API .mov` — there is a **space before `.mov`**. Renaming to something like `locust-rtml-api-demo.mov` avoids odd edge cases.
+
+### Fix: shrink to under 10 MB, then re-upload
+
+On a Mac, **ffmpeg** can produce an H.264 `.mp4` that GitHub accepts and that plays in most browsers:
+
+```bash
+ffmpeg -y -i "$HOME/Desktop/Locust test and RTML-API .mov" \
+  -vf "scale='min(1280,iw)':-2" -c:v libx264 -preset slow -crf 28 \
+  -an -movflags +faststart \
+  "$HOME/Desktop/locust-rtml-api-readme.mp4"
+```
+
+Check size with `ls -lh ~/Desktop/locust-rtml-api-readme.mp4` — it should be **under 10 MB**. If it is still too big, raise `crf` (e.g. `30` or `32`) or shorten the clip with `-t 60` (first 60 seconds).
+
+Then:
+
+1. Open **[New issue](https://github.com/Rickyganta/RealTime-ML-API/issues/new)** while signed in.
+2. Drag the **small `.mp4`** into **Leave a comment** and wait until a `https://github.com/user-attachments/assets/…` link appears (no “Failed to upload” comment).
+3. Copy that URL; you can **Cancel** the draft issue.
+4. Paste it into the README:
 
 ```html
 <video src="https://github.com/user-attachments/assets/YOUR_ID_HERE" controls playsinline width="100%"></video>
 ```
 
-I can’t run steps 1–3 from here (no access to your GitHub login or your Finder drag-and-drop). After you have the URL, paste it in a message and I can drop it into this README for you and push.
+### Bigger files without compressing
+
+- **GitHub Release** assets (good for demos over 10 MB): create a release and attach the video, then link or embed depending on what GitHub allows for that asset URL.
+- **YouTube / Vimeo (unlisted)** + a normal markdown link in the README — reliable for long HD demos.
 
 ## How to Run Locally
 
