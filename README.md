@@ -98,16 +98,15 @@ The hosted app only needs **`dashboard/app.py`** plus `requirements.txt`. **`sci
   API_BASE = "https://your-api.onrender.com"
   ```
 
-  Use **HTTPS** and a host that exists on the public internet (Render, Fly.io, Railway, your own VPS, or **ngrok/Cloudflare Tunnel** to `localhost:8000`). **Do not** use `localhost` or placeholder hosts like `your-deployed-api.example.com`—the Streamlit server will try to resolve that name and you’ll see `NameResolutionError` in the UI.
+  Use **HTTPS** and a resolvable public host (Render, Fly.io, Railway, a VPS, or **ngrok / Cloudflare Tunnel** to a local API). `localhost` and placeholder hostnames are not valid from Streamlit’s servers.
 
 - **Locust:** You do **not** deploy Locust to Streamlit Cloud. Locust is a **local** load tool (`make loadtest-read` → http://localhost:8089). The Streamlit tab **“Performance (Locust)”** only shows the **saved benchmark screenshot + summary table** from this repo—it is not a live Locust server.
 
 - **Python version:** In deploy **Advanced settings**, **3.11** or **3.12** is fine; **3.14** works for this repo now that Surprise was removed from `requirements.txt`.
 
-### `API_BASE` value (why you still see errors)
+### `API_BASE` format
 
-Use a **real URL string only** — no angle brackets. Good: `API_BASE = "https://realtime-ml-api-production.up.railway.app"`  
-Wrong: `API_BASE = "https://<your-public-fastapi-host>"` (that was documentation shorthand, not a valid hostname).
+Use a literal URL (no angle brackets), for example `API_BASE = "https://your-api.up.railway.app"`.
 
 ### Does the API need Postgres and Redis?
 
@@ -136,9 +135,9 @@ Also confirm **Actions** ran successfully and the package exists (open the packa
 
 1. **New Railway project** → **Add database** → **PostgreSQL** and **Redis** (or add from template).
 2. **New service** → either **GitHub repo** (if you linked GitHub) **or** **Docker image** with the `ghcr.io/...` line above. Railway sets **`PORT`**; the image `CMD` listens on `$PORT`.
-3. **Variables** on the API service (names match `app/core/config.py` / `.env.example`):
-   - **`POSTGRES_URL`**: take the Postgres plugin’s URL and ensure SQLAlchemy + psycopg2 form, e.g. if Railway gives `postgres://...`, use **`postgresql+psycopg2://...`** (same user/password/host/port/db, only the scheme prefix changes).
-   - **`REDIS_URL`**: copy from the Redis plugin (usually `redis://…`).
+3. **Variables** on the API service (see `app/core/config.py` and `.env.example`):
+   - **Postgres:** `DATABASE_URL`, `DATABASE_PRIVATE_URL`, or `POSTGRES_URL` (or `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` / `PGDATABASE`); `postgres://` is normalized to `postgresql+psycopg2://` for SQLAlchemy.
+   - **Redis:** `REDIS_URL` from the Redis service.
    - Optional: `AB_SALT`, `RATE_LIMIT_PER_MINUTE`, `LOADTEST_BYPASS_TOKEN` (empty in prod unless you need Locust bypass).
 4. **One-off ingest** (MovieLens into Postgres): after first deploy, open **Railway → your API service → Shell** (or a one-off job) and run:
 
@@ -149,7 +148,7 @@ Also confirm **Actions** ran successfully and the package exists (open the packa
 5. **Networking:** generate a **public domain** for the API service, verify **`https://…/health`** and **`https://…/docs`** in a browser.
 6. **Streamlit Cloud secrets:** set `API_BASE` to that same origin, e.g. `API_BASE = "https://your-service.up.railway.app"` (no trailing slash required; paths are appended in code).
 
-After that, redeploy or refresh Streamlit; the red “could not load” banners should clear once the API responds.
+After that, redeploy the API and refresh the Streamlit app so it picks up `API_BASE`.
 
 ## API (quick reference)
 
