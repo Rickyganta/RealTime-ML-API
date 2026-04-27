@@ -19,12 +19,13 @@ jobs:
       - uses: actions/checkout@v4
 
       # GHCR rejects mixed-case host/path; normalize owner to lowercase
-      - name: Set image tag
+      - name: Set image tags
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          tag="ghcr.io/${owner}/realtime-ml-api:latest"
-          echo "IMAGE_TAG=${tag}" >> "$GITHUB_ENV"
-          echo "Pushing ${tag}"
+          base="ghcr.io/${owner}/realtime-ml-api"
+          echo "IMAGE_TAG_LATEST=${base}:latest" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG_SHA=${base}:${{ github.sha }}" >> "$GITHUB_ENV"
+          echo "Pushing ${base}:latest and ${base}:${{ github.sha }}"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -39,6 +40,10 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.IMAGE_TAG }}
+          tags: |
+            ${{ env.IMAGE_TAG_LATEST }}
+            ${{ env.IMAGE_TAG_SHA }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}

@@ -120,7 +120,7 @@ Railway is a good fit: add **PostgreSQL** and **Redis** plugins, deploy this rep
 
 After **[Publish API image to GHCR](.github/workflows/publish-ghcr.yml)** runs on `main` (GitHub → **Actions** → green workflow), paste **exactly** (owner is lowercase in the URL):
 
-`ghcr.io/rickyganta/realtime-ml-api:latest`
+`ghcr.io/rickyganta/realtime-ml-api:latest` (Actions also tags each push as `ghcr.io/rickyganta/realtime-ml-api:<git-sha>` if you want a pin instead of `latest`).
 
 **If Railway says “unable to connect to the registry” / “private image… credentials”:** images pushed from Actions are usually **private** on GHCR. Pick one:
 
