@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -24,6 +25,7 @@ from app.schemas.api import (
 from app.services.ab_testing import assign_strategy
 from app.services.cache import CacheClient
 from app.services.feature_store import (
+    cache_popular_fallback,
     increment_ab_click,
     increment_ab_impression,
     popular_key,
@@ -41,6 +43,19 @@ recommender: RecommenderService | None = None
 rate_limiter: RateLimiter | None = None
 
 
+async def _warm_recommendation_cache() -> None:
+    """Heavy Redis warm runs off the startup critical path (avoids proxy 502s while booting)."""
+    if not cache_client or not recommender:
+        return
+    try:
+        stats = await asyncio.to_thread(
+            precompute_user_recommendations, cache_client, recommender, 100
+        )
+        logger.info("cache_warm_complete", extra=stats)
+    except Exception:
+        logger.exception("cache_warm_failed")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     global cache_client, recommender, rate_limiter
@@ -49,8 +64,12 @@ async def lifespan(_app: FastAPI):
     cache_client = CacheClient()
     rate_limiter = RateLimiter(cache_client)
     recommender = RecommenderService()
-    precompute_user_recommendations(cache_client, recommender, top_k=100)
-    logger.info("service_started", extra={"model_version": recommender.model_version})
+    cache_popular_fallback(cache_client, recommender, top_k=100)
+    asyncio.create_task(_warm_recommendation_cache())
+    logger.info(
+        "service_started",
+        extra={"model_version": recommender.model_version, "cache_warm": "background"},
+    )
     yield
 
 

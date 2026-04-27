@@ -8,6 +8,19 @@ from app.services.recommender import RecommenderService, ScoredMovie
 STRATEGIES = ("collaborative", "content", "hybrid")
 
 
+def cache_popular_fallback(
+    cache: CacheClient, recommender: RecommenderService, top_k: int = 100
+) -> None:
+    """Write cold-start popular list to Redis (fast; used before heavy per-user warm)."""
+    model_version = recommender.model_version
+    popular = _serialize(recommender._popular_fallback(top_k), "popular_fallback")
+    cache.set_json(
+        f"model:{model_version}:cold_start:popular",
+        popular,
+        ttl=24 * 60 * 60,
+    )
+
+
 def _serialize(items: list[ScoredMovie], strategy: str) -> list[dict[str, object]]:
     return [
         {
@@ -27,6 +40,8 @@ def precompute_user_recommendations(
     top_k: int = 100,
 ) -> dict[str, int]:
     model_version = recommender.model_version
+    cache_popular_fallback(cache, recommender, top_k)
+
     user_ids = sorted({int(u) for u in recommender.ratings_df["userId"].unique().tolist()})
 
     for user_id in user_ids:
@@ -53,13 +68,6 @@ def precompute_user_recommendations(
             per_strategy.get(assigned_strategy, []),
             ttl=24 * 60 * 60,
         )
-
-    popular = _serialize(recommender._popular_fallback(top_k), "popular_fallback")
-    cache.set_json(
-        f"model:{model_version}:cold_start:popular",
-        popular,
-        ttl=24 * 60 * 60,
-    )
 
     return {"users_precomputed": len(user_ids), "top_k": top_k}
 
