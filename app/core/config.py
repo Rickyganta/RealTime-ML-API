@@ -39,10 +39,14 @@ def _postgres_url_from_pg_env() -> str | None:
 
 
 def _env_file() -> str | None:
-    # In Railway, do not load a baked-in .env that might pin POSTGRES_URL to localhost.
-    if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_PROJECT_ID"):
+    # On Railway, never load a baked-in .env (it can pin POSTGRES_URL to localhost).
+    if any(k.startswith("RAILWAY_") for k in os.environ):
         return None
     return ".env"
+
+
+def _is_railway_runtime() -> bool:
+    return any(k.startswith("RAILWAY_") for k in os.environ)
 
 
 class Settings(BaseSettings):
@@ -67,6 +71,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("DATABASE_PRIVATE_URL", "database_private_url"),
     )
+    database_public_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("DATABASE_PUBLIC_URL", "database_public_url"),
+    )
     redis_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("REDIS_URL", "redis_url"),
@@ -85,13 +93,22 @@ class Settings(BaseSettings):
         pg = (
             _nonempty(os.environ.get("DATABASE_URL"))
             or _nonempty(os.environ.get("DATABASE_PRIVATE_URL"))
+            or _nonempty(os.environ.get("DATABASE_PUBLIC_URL"))
             or _nonempty(os.environ.get("POSTGRES_URL"))
             or _nonempty(self.database_url)
             or _nonempty(self.database_private_url)
+            or _nonempty(self.database_public_url)
             or _nonempty(self.postgres_url)
             or _postgres_url_from_pg_env()
         )
         if not pg:
+            if _is_railway_runtime():
+                raise RuntimeError(
+                    "No Postgres URL in this container's environment. On this Railway service open "
+                    "Variables, add DATABASE_URL (Reference → Postgres → DATABASE_URL or "
+                    "DATABASE_PRIVATE_URL), save, then redeploy. The URL must be defined on the "
+                    "service that runs the API container, not only on the Postgres service."
+                )
             pg = "postgresql+psycopg2://recommender:recommender@localhost:5432/recommender"
         object.__setattr__(self, "postgres_url", _normalize_postgres_sqlalchemy_url(str(pg)))
 
