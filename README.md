@@ -92,8 +92,17 @@ If `uvicorn` / `streamlit` shims break after moving the repo folder, run `make r
 
 The hosted app only needs **`dashboard/app.py`** plus `requirements.txt`. **`scikit-surprise` is intentionally not listed there**: Community Cloud often runs **Python 3.14**, and Surprise 1.1.4 fails to compile on that stack (Cython / NumPy typing errors). The **live API and dashboard** use **scikit-learn**, not Surprise.
 
-- **Secrets:** In the Cloud app settings, set **`API_BASE`** to a reachable URL for your FastAPI service (for example a deployed API or a tunnel to your laptop). The dashboard defaults to `http://localhost:8000`, which will not work from Cloud unless you proxy it.
-- **Python version:** In deploy **Advanced settings**, pick **3.11** or **3.12** if you ever add native extensions again; 3.14 is fine once Surprise is gone from `requirements.txt`.
+- **Secrets (required):** In Cloud **Settings → Secrets**, set a real public base URL for your FastAPI app (same shape as `.streamlit/secrets.toml.example` in this repo):
+
+  ```toml
+  API_BASE = "https://your-api.onrender.com"
+  ```
+
+  Use **HTTPS** and a host that exists on the public internet (Render, Fly.io, Railway, your own VPS, or **ngrok/Cloudflare Tunnel** to `localhost:8000`). **Do not** use `localhost` or placeholder hosts like `your-deployed-api.example.com`—the Streamlit server will try to resolve that name and you’ll see `NameResolutionError` in the UI.
+
+- **Locust:** You do **not** deploy Locust to Streamlit Cloud. Locust is a **local** load tool (`make loadtest-read` → http://localhost:8089). The Streamlit tab **“Performance (Locust)”** only shows the **saved benchmark screenshot + summary table** from this repo—it is not a live Locust server.
+
+- **Python version:** In deploy **Advanced settings**, **3.11** or **3.12** is fine; **3.14** works for this repo now that Surprise was removed from `requirements.txt`.
 
 ## API (quick reference)
 

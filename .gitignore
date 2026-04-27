@@ -23,6 +23,9 @@ build/
 .env.*
 !.env.example
 
+# Streamlit local secrets
+.streamlit/secrets.toml
+
 # OS / editor
 .DS_Store
 .idea/
