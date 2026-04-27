@@ -104,6 +104,36 @@ The hosted app only needs **`dashboard/app.py`** plus `requirements.txt`. **`sci
 
 - **Python version:** In deploy **Advanced settings**, **3.11** or **3.12** is fine; **3.14** works for this repo now that Surprise was removed from `requirements.txt`.
 
+### `API_BASE` value (why you still see errors)
+
+Use a **real URL string only** — no angle brackets. Good: `API_BASE = "https://realtime-ml-api-production.up.railway.app"`  
+Wrong: `API_BASE = "https://<your-public-fastapi-host>"` (that was documentation shorthand, not a valid hostname).
+
+### Does the API need Postgres and Redis?
+
+**Yes.** On boot the app creates tables, connects to **Redis** for the cache / feature-store keys, and runs `precompute_user_recommendations`. If Postgres or Redis is missing or URLs are wrong, `/health` might still return `ok`, but `/recommendations/*`, `/metrics`, and `/admin/ab/results` will fail when they touch the DB or cache.
+
+### Deploy the API on Railway (works with Premium)
+
+Railway is a good fit: add **PostgreSQL** and **Redis** plugins, deploy this repo as a **Dockerfile** service, wire env vars, then put the service’s **public HTTPS URL** into Streamlit’s `API_BASE`.
+
+1. **New Railway project** → **Add database** → **PostgreSQL** and **Redis** (or add from template).
+2. **New service** → **GitHub repo** `realtime-ml-api` → deploy from **Dockerfile** (root `Dockerfile`). Railway sets **`PORT`**; the image `CMD` listens on `$PORT`.
+3. **Variables** on the API service (names match `app/core/config.py` / `.env.example`):
+   - **`POSTGRES_URL`**: take the Postgres plugin’s URL and ensure SQLAlchemy + psycopg2 form, e.g. if Railway gives `postgres://...`, use **`postgresql+psycopg2://...`** (same user/password/host/port/db, only the scheme prefix changes).
+   - **`REDIS_URL`**: copy from the Redis plugin (usually `redis://…`).
+   - Optional: `AB_SALT`, `RATE_LIMIT_PER_MINUTE`, `LOADTEST_BYPASS_TOKEN` (empty in prod unless you need Locust bypass).
+4. **One-off ingest** (MovieLens into Postgres): after first deploy, open **Railway → your API service → Shell** (or a one-off job) and run:
+
+   `PYTHONPATH=. python scripts/ingest_movielens.py`
+
+   The repo includes `data/ml-latest-small` in the image so ingest can run without re-downloading if paths match.
+
+5. **Networking:** generate a **public domain** for the API service, verify **`https://…/health`** and **`https://…/docs`** in a browser.
+6. **Streamlit Cloud secrets:** set `API_BASE` to that same origin, e.g. `API_BASE = "https://your-service.up.railway.app"` (no trailing slash required; paths are appended in code).
+
+After that, redeploy or refresh Streamlit; the red “could not load” banners should clear once the API responds.
+
 ## API (quick reference)
 
 - `POST /users/{id}/interactions` — record rating  
