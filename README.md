@@ -117,8 +117,16 @@ Wrong: `API_BASE = "https://<your-public-fastapi-host>"` (that was documentation
 
 Railway is a good fit: add **PostgreSQL** and **Redis** plugins, deploy this repo as a **Dockerfile** service, wire env vars, then put the service’s **public HTTPS URL** into Streamlit’s `API_BASE`.
 
+#### Railway “Docker image” screen — what to paste
+
+After **[Publish API image to GHCR](.github/workflows/publish-ghcr.yml)** runs on `main` (GitHub → **Actions** → green workflow), paste **exactly** (owner is lowercase in the URL):
+
+`ghcr.io/rickyganta/realtime-ml-api:latest`
+
+If the package is **private**, add registry credentials in Railway (GitHub PAT with `read:packages`). If it’s **public**, no extra creds. Confirm the image exists under GitHub → **Packages** for your user.
+
 1. **New Railway project** → **Add database** → **PostgreSQL** and **Redis** (or add from template).
-2. **New service** → **GitHub repo** `realtime-ml-api` → deploy from **Dockerfile** (root `Dockerfile`). Railway sets **`PORT`**; the image `CMD` listens on `$PORT`.
+2. **New service** → either **GitHub repo** (if you linked GitHub) **or** **Docker image** with the `ghcr.io/...` line above. Railway sets **`PORT`**; the image `CMD` listens on `$PORT`.
 3. **Variables** on the API service (names match `app/core/config.py` / `.env.example`):
    - **`POSTGRES_URL`**: take the Postgres plugin’s URL and ensure SQLAlchemy + psycopg2 form, e.g. if Railway gives `postgres://...`, use **`postgresql+psycopg2://...`** (same user/password/host/port/db, only the scheme prefix changes).
    - **`REDIS_URL`**: copy from the Redis plugin (usually `redis://…`).
