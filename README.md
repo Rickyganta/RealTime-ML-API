@@ -1,4 +1,4 @@
-![Locust (Safari, local): ~1.16M requests, ~1k RPS, 0 failures, p95 ~56ms — read-heavy GET /recommendations/*](docs/benchmarks/locust-1000rps.png)
+![Locust (Safari, local): ~1.34M requests, ~1k RPS, 0 failures, p95 ~54ms — read-heavy GET /recommendations/*](docs/benchmarks/locust-1000rps.png)
 
 # Real-Time ML Recommendation API
 
@@ -64,7 +64,7 @@ If `streamlit`/`uvicorn` suddenly isn’t on your PATH after moving the project 
 
 I split this into two runs on purpose: a **read heavy** test for headline latency/RPS, and a **mixed** test if I want a little write traffic.
 
-**Read heavy (README screenshot: ~1.16M total requests, mostly `GET /recommendations/101`, ~1k RPS):**
+**Read heavy (README screenshot: ~1.34M total requests, mostly `GET /recommendations/101`, ~1k RPS):**
 - `make loadtest-read` (opens Locust on `http://localhost:8089`)
 - or headless: `./.venv/bin/python -m locust -f locust/locustfile_readonly.py --host http://localhost:8000 --headless --users 100 --spawn-rate 20 --run-time 2m`
 

@@ -185,15 +185,15 @@ with bench_tab:
             [
                 {
                     "Scenario": "Read-heavy (cached) GET /recommendations/*",
-                    "Total requests": 1_164_035,
+                    "Total requests": 1_342_878,
                     "Users": 100,
                     "Spawn rate (/s)": 10,
                     "Current RPS": "~1,000",
                     "Failures": 0,
-                    "Median (ms)": 11,
-                    "p95 (ms)": 56,
-                    "p99 (ms)": 89,
-                    "Average (ms)": 16.31,
+                    "Median (ms)": 10,
+                    "p95 (ms)": 54,
+                    "p99 (ms)": 87,
+                    "Average (ms)": 15.68,
                 }
             ]
         ),
