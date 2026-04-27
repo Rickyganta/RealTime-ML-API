@@ -46,6 +46,23 @@ Details and how to re-run: `docs/benchmark_results.md`.
 
 Set `LOADTEST_BYPASS_TOKEN` in `.env` and confirm with `curl -s http://127.0.0.1:8000/health` → `"loadtest_bypass_configured": true`. The API enforces `RATE_LIMIT_PER_MINUTE` (default 100/min per IP) without that bypass.
 
+## Demo video (Locust + RTML-API)
+
+Yes—you can embed a **playable** `.mov` / `.mp4` on the repo homepage by hosting it on GitHub’s attachment CDN, then pointing a `<video>` tag at that URL (GitHub allows this in READMEs for `user-attachments` links).
+
+Your recording: **`Locust test and RTML-API .mov`** on the Desktop (~50 MB).
+
+1. While signed into GitHub in the browser, open **[New issue](https://github.com/Rickyganta/RealTime-ML-API/issues/new)** for this repo.
+2. Drag **`Locust test and RTML-API .mov`** from Finder into the **Leave a comment** field and wait until the upload finishes (GitHub will insert a markdown link).
+3. Copy the URL that looks like `https://github.com/user-attachments/assets/…`. You can click **Cancel** on the draft issue—the attachment URL keeps working.
+4. Paste that URL into your README as the `src` below, commit, and push:
+
+```html
+<video src="https://github.com/user-attachments/assets/YOUR_ID_HERE" controls playsinline width="100%"></video>
+```
+
+I can’t run steps 1–3 from here (no access to your GitHub login or your Finder drag-and-drop). After you have the URL, paste it in a message and I can drop it into this README for you and push.
+
 ## How to Run Locally
 
 ### Option A — Docker Compose (three steps)
