@@ -125,7 +125,9 @@ After **[Publish API image to GHCR](.github/workflows/publish-ghcr.yml)** runs o
 
 **If Railway says “unable to connect to the registry” / “private image… credentials”:** images pushed from Actions are usually **private** on GHCR. Pick one:
 
-1. **Recommended (simple):** GitHub → **Packages** → `realtime-ml-api` → **Package settings** → **Change package visibility** → **Public** (fine for this API image if you didn’t bake secrets into the Dockerfile). Redeploy on Railway — no registry token needed.
+1. **Recommended (simple):** Open **your GitHub profile’s Packages tab** (not repo *code* search): `https://github.com/Rickyganta?tab=packages` → **`realtime-ml-api`** → **Package settings** → **Change package visibility** → **Public**. Making the image **public** does **not** expose Railway URLs or database passwords; those live only in Railway **Variables**. The image layers match what’s already in this public repo (no secrets in the Dockerfile). Redeploy on Railway — no registry token needed.
+
+   If there is **no package** yet, run **Actions → “Publish API image to GHCR”** on `main` (or push a commit) and wait until it’s green.
 2. **Keep private (Pro):** Railway → your service → **Settings** → **Source** → **Registry credentials** → paste a GitHub **PAT** with **`read:packages`** in the **GitHub Access Token** field ([Railway: private registries](https://docs.railway.com/builds/private-registries)). PAT must be from a GitHub user that can read that package (e.g. **Rickyganta**).
 
 Also confirm **Actions** ran successfully and the package exists (open the package on GitHub and copy the exact image name if it differs).
