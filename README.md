@@ -1,104 +1,94 @@
-![Locust (cropped stats only): ~1.16M requests, ~1k RPS, 0 failures, p95 ~56ms — read-heavy GET /recommendations/*](docs/benchmarks/locust-1000rps.png)
+![Streamlit admin dashboard (header graphic matching the local UI; run `make dashboard` at http://localhost:8502 for the live app, or `python scripts/generate_streamlit_readme_header.py` to regenerate this image)](docs/images/streamlit-dashboard.png)
 
 # Real-Time ML Recommendation API
 
-Personal project: a small recommendation service with a real API, a cache layer, Postgres, and basic experimentation/monitoring hooks.
-
 **Author:** Ricky Johnson Ganta
 
-## What this is
+## Why I Built This
 
-- **API**: FastAPI
-- **Cache / online store**: Redis (precomputed recommendation lists for fast `GET`s)
-- **Database**: Postgres (movies/users/interactions)
-- **Models (MovieLens `ml-latest-small`)**:
-  - Collaborative: user–user style scoring from a user–user similarity matrix (cosine)
-  - Content: TF–IDF over genres/title text + cosine similarity
-  - Hybrid: weighted blend (default `0.6*CF + 0.4*CB`)
-- **A/B test bucketing**: deterministic hash of `user_id` (stable assignment)
-- **Metrics**: `/metrics` in Prometheus text format
-- **Dashboard**: Streamlit app in `dashboard/app.py`
-- **Retrain job**: a simple long-running loop in `app/jobs/nightly_retrain.py` (dev/demo; swap for a real scheduler in production)
+Recommendation APIs are easy to sketch in a notebook but hard to run like a real product: you need fast reads under bursty traffic, a place to store interactions, something sane for cold users, and enough telemetry to know when the system—not just the model—is misbehaving. I built this project to practice that full path end-to-end: a FastAPI service backed by Postgres and Redis, hybrid collaborative + content scoring on MovieLens data, cache-friendly precomputed lists, Prometheus metrics, a small Streamlit surface to watch the system, and Locust runs to prove the read path stays stable at high RPS with clear guardrails (rate limits and an explicit load-test bypass for local benchmarking).
 
-`docker-compose.yml` is included for a full local stack. I mostly run the API directly on my laptop with local Postgres/Redis.
+## Tech Stack
 
-## Endpoints
+- **API & serving:** FastAPI, Uvicorn, Pydantic Settings
+- **Data stores:** PostgreSQL (SQLAlchemy), Redis (precomputed recommendation lists + cache)
+- **ML / ranking:** scikit-learn (user–user style collaborative filtering, TF–IDF content features, hybrid blend)
+- **Dataset:** MovieLens `ml-latest-small` (ingested via `scripts/ingest_movielens.py`)
+- **Experimentation / UI:** Streamlit admin dashboard (`dashboard/app.py`)
+- **Load testing:** Locust (`locust/`, Makefile targets)
+- **Observability:** Prometheus text metrics on `/metrics`
+- **Offline evaluation:** Jupyter + Surprise SVD notebook (`notebooks/model_training_and_eval.ipynb`) for RMSE/NDCG experiments separate from the online sklearn pipeline
+- **Containers:** Docker Compose (API, worker, dashboard, Postgres, Redis)
 
-- `POST /users/{id}/interactions` - record rating
-- `GET /recommendations/{user_id}?n=10&strategy=hybrid|collaborative|content|ab_auto`
-- `GET /recommendations/{user_id}/explain`
-- `GET /metrics`
-- `POST /admin/retrain`
-- `GET /health`
-- `GET /admin/ab/results`
+## Load Test / Performance Results (recommendation read path)
 
-## How to run (local, what I use)
+Read-heavy Locust traffic against `GET /recommendations/{user_id}` (Redis-backed lists, load-test bypass header so local runs are not capped by the per-IP rate limit):
 
-1. `python3.11 -m venv .venv && source .venv/bin/activate`
-2. `pip install -r requirements.txt`
-3. Start Postgres + Redis locally (`localhost:5432`, `localhost:6379`)
-4. Ingest data:
-   - `PYTHONPATH=. python scripts/ingest_movielens.py`
-5. API:
-   - `make dev-api`
-6. Optional UI:
-   - `make dashboard` → `http://localhost:8502`
+| Metric | Aggregated | `GET /recommendations/101` (bulk of traffic) |
+|--------|------------|---------------------------------------------|
+| **Requests** | 1,164,035 | 1,159,455 |
+| **Failures** | 0 | 0 |
+| **Median** | 11 ms | 11 ms |
+| **p95** | 56 ms | 56 ms |
+| **p99** | 89 ms | 89 ms |
+| **Average** | 16.31 ms | 16.28 ms |
+| **RPS (reported)** | ~1,000 | ~1,000 |
 
-If `streamlit`/`uvicorn` suddenly isn’t on your PATH after moving the project folder, the venv entrypoints are stale: `make repair-venv`.
+![Locust statistics (cropped: stats table only, no browser tabs)](docs/benchmarks/locust-1000rps.png)
 
-**Docker note:** `docker-compose.yml` forces `postgres`/`redis` hostnames for containers. `.env` uses `localhost` for laptop runs.
+Details and how to re-run: `docs/benchmark_results.md`.
 
-**URLs**
-- API: `http://localhost:8000`
-- Health: `http://localhost:8000/health`
-- Streamlit: `http://localhost:8502`
+**Commands**
 
-### Local troubleshooting (the stuff that actually bit me)
+- Read-heavy UI: `make loadtest-read` → http://localhost:8089  
+- Mixed read/write: `make loadtest-mixed`  
+- Headless example: `./.venv/bin/python -m locust -f locust/locustfile_readonly.py --host http://localhost:8000 --headless --users 100 --spawn-rate 20 --run-time 2m`
 
-- `uvicorn: command not found` → use `./.venv/bin/python -m uvicorn ...` or `make dev-api`
-- `could not resolve host "postgres"` → you’re not inside compose networking; use localhost URLs (or run compose)
-- `429` from Locust → rate limit; set `LOADTEST_BYPASS_TOKEN` for the API and run Locust with the same value (`make loadtest-read` does this)
-- `connection refused` from Locust → API isn’t running on `:8000`
+Set `LOADTEST_BYPASS_TOKEN` in `.env` and confirm with `curl -s http://127.0.0.1:8000/health` → `"loadtest_bypass_configured": true`. The API enforces `RATE_LIMIT_PER_MINUTE` (default 100/min per IP) without that bypass.
 
-## Load testing (Locust)
+## How to Run Locally
 
-I split this into two runs on purpose: a **read heavy** test for headline latency/RPS, and a **mixed** test if I want a little write traffic.
+### Option A — Docker Compose (three steps)
 
-**Read heavy (README image matches this run: ~1.16M total requests, mostly `GET /recommendations/101`, ~1k RPS):**
-- `make loadtest-read` (opens Locust on `http://localhost:8089`)
-- or headless: `./.venv/bin/python -m locust -f locust/locustfile_readonly.py --host http://localhost:8000 --headless --users 100 --spawn-rate 20 --run-time 2m`
+1. **Clone and env:** `git clone` this repo, `cd` into it, copy `.env.example` to `.env`, and adjust any secrets (optional: set `LOADTEST_BYPASS_TOKEN` for Locust).
+2. **Start the stack:** `docker compose up --build` and wait until the API is listening on port **8000** (Postgres **5432**, Redis **6379**, Streamlit dashboard **8501** inside Compose).
+3. **Load data & open the app:** run `docker compose exec api sh -c "PYTHONPATH=. python scripts/ingest_movielens.py"` (first-time MovieLens ingest), then visit **http://localhost:8000/docs** and **http://localhost:8501** (dashboard uses `API_BASE=http://api:8000` in Compose).
 
-**Mixed (some `POST /users/{id}/interactions`, mostly reads):**
-- `make loadtest-mixed`
+### Option B — Python virtual environment (three steps)
 
-**Optional demo seeding (fills interaction counters without lying about a load test):**
-- `make seed-interactions`
+1. **Python & deps:** `python3.11 -m venv .venv && source .venv/bin/activate`, then `pip install -r requirements.txt`, and copy `.env.example` → `.env` with `POSTGRES_URL` / `REDIS_URL` pointing at **localhost** (see `.env.example`).
+2. **Dependencies up:** start Postgres and Redis on your machine (or run only `docker compose up -d postgres redis` from this repo if you want databases in Docker but the API on the host).
+3. **Ingest & run:** `PYTHONPATH=. python scripts/ingest_movielens.py`, then `make dev-api` (API on **http://localhost:8000**) in one terminal and `make dashboard` (Streamlit on **http://localhost:8502**) in another.
 
-**Refresh the image file used by README + Streamlit tab:**
-- replace `docs/benchmarks/locust-1000rps.png` with an exported screenshot, or
-- `make gen-benchmark-png` (generates a simple table PNG from the summary numbers)
+If `uvicorn` / `streamlit` shims break after moving the repo folder, run `make repair-venv`. If you see `could not resolve host "postgres"`, your `.env` is using Docker hostnames outside Compose—use `localhost` for laptop runs (see `scripts/dev_api.sh`).
 
-**Rate limiting note**
-- The API enforces `RATE_LIMIT_PER_MINUTE` (default 100/min per IP). For anything above that, I use `LOADTEST_BYPASS_TOKEN` + the `X-Loadtest-Bypass` header in Locust. Quick check:
+## API (quick reference)
 
-`curl -s http://127.0.0.1:8000/health` → `"loadtest_bypass_configured": true` when the token is set.
+- `POST /users/{id}/interactions` — record rating  
+- `GET /recommendations/{user_id}?n=10&strategy=hybrid|collaborative|content|ab_auto`  
+- `GET /recommendations/{user_id}/explain`  
+- `GET /metrics` — Prometheus text  
+- `POST /admin/retrain`, `GET /admin/ab/results`, `GET /health`
 
-## Offline evaluation notes
+## What the models do (online API)
 
-- Notebook: `notebooks/model_training_and_eval.ipynb`
-- That notebook uses **Surprise SVD** on ratings (good for RMSE/NDCG experiments). The **running API** is the sklearn user–user + TF–IDF stack above — same dataset, different model path. I kept both so I could show classic matrix-factorization eval without dragging Surprise into production dependencies.
+- **Collaborative:** user–user style similarity (cosine) over rating vectors  
+- **Content:** TF–IDF over genres/title text + cosine similarity  
+- **Hybrid:** default `0.6 * CF + 0.4 * CB`  
+- **A/B:** deterministic hash bucketing on `user_id`  
+- **Retrain loop:** `app/jobs/nightly_retrain.py` (demo-style; replace with a real scheduler in production)
 
-## A/B test methodology
+## Offline evaluation
 
-- Primary metric: CTR (click-through-rate from recommendation impressions)
-- Secondary: watch-time proxy/engagement, novelty, catalog coverage
-- Significance:
-  - two-proportion z-test (see `app/services/statsig.py`)
-- Guardrails:
-  - latency, error-rate, and cache hit-rate should not regress
+The notebook `notebooks/model_training_and_eval.ipynb` uses **Surprise SVD** for classic offline metrics. The **running API** uses the sklearn stack above—same dataset, different serving path.
 
-## Things I’d do before calling this “production”
+## A/B methodology (summary)
 
-- Put model artifacts in object storage and wire real versioning/rollback
-- Add auth on `/admin/*`, migrate schemas with Alembic, and run CI (unit + smoke load)
-- Replace the toy rate limiter with something distributed for multi-instance deploys
+- Primary: CTR on recommendation impressions  
+- Secondary: engagement / novelty / coverage (placeholders for a fuller product)  
+- Significance: two-proportion z-test (`app/services/statsig.py`)  
+- Guardrails: latency, errors, cache hit rate
+
+## Production gaps (honest list)
+
+- Object storage + versioned model artifacts, auth on `/admin/*`, Alembic migrations, distributed rate limiting, CI (unit + smoke load)

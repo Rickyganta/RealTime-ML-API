@@ -1,4 +1,4 @@
-.PHONY: setup dev-api dashboard repair-venv up down loadtest loadtest-read loadtest-mixed seed-interactions gen-benchmark-png
+.PHONY: setup dev-api dashboard repair-venv up down loadtest loadtest-read loadtest-mixed seed-interactions gen-benchmark-png gen-readme-header
 
 setup:
 	python3 scripts/download_movielens.py
@@ -17,6 +17,9 @@ repair-venv:
 
 gen-benchmark-png:
 	./.venv/bin/python scripts/generate_benchmark_png.py
+
+gen-readme-header:
+	./.venv/bin/python scripts/generate_streamlit_readme_header.py
 
 seed-interactions:
 	./.venv/bin/python scripts/seed_interactions.py
