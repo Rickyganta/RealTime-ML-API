@@ -35,3 +35,12 @@ class ExplainResponse(BaseModel):
 class RetrainResponse(BaseModel):
     status: str
     model_version: str
+
+
+class MovieRow(BaseModel):
+    id: int
+    title: str
+
+
+class MovieListResponse(BaseModel):
+    items: list[MovieRow]

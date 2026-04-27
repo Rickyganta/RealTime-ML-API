@@ -53,7 +53,9 @@ def _api_base() -> str:
 API_BASE = _api_base()
 
 st.title("Movie recs")
-st.caption(f"Live API · [OpenAPI docs]({API_BASE}/docs) · [health]({API_BASE}/health)")
+st.caption(
+    f"Live API · [OpenAPI docs]({API_BASE}/docs) · [health]({API_BASE}/health) · [movies in DB]({API_BASE}/movies)"
+)
 
 main_tab, bench_tab = st.tabs(["Main", "Performance (Locust)"])
 
@@ -70,6 +72,14 @@ def _fetch_text(url: str) -> str:
     response = requests.get(url, timeout=10)
     response.raise_for_status()
     return response.text
+
+
+@st.cache_data(ttl=120)
+def _fetch_movie_list(base: str) -> list[dict]:
+    response = requests.get(f"{base}/movies?limit=200", timeout=15)
+    response.raise_for_status()
+    data = response.json()
+    return list(data.get("items", []))
 
 
 def _extract_metric_value(metrics_text: str, metric_name: str, selectors: list[str]) -> float:
@@ -152,27 +162,54 @@ with main_tab:
         st.markdown(
             """
 1. **Impressions:** each **`GET /recommendations/{user_id}`** (including from the widgets below) increments A/B impressions for the served strategy.
-2. **Clicks:** **`POST /users/{id}/interactions`** with a **rating ≥ 3.5** counts as a click for that user’s bucket strategy (movie must exist in the API DB—use a `movie_id` from the recs table or ingest data first).
-3. **Manual tries:** use **[OpenAPI docs](%s)** → *Try it out*, or **`curl`**, or the form below.
+2. **Clicks:** **`POST /users/{id}/interactions`** with a **rating ≥ 3.5** counts as a click for that user’s bucket strategy. The **`movie_id` must exist in Postgres** (see **`GET /movies`**). If that list is empty, run ingest once on the API host (see warning in the form below).
+3. **Manual tries:** **[OpenAPI docs](%s)**, **`curl`**, or the form below—pick a real `movie_id` from **`GET /movies`** first.
             """
             % API_BASE
         )
         st.code(
+            f"curl -sS \"{API_BASE}/movies?limit=5\"\n"
             f'curl -sS -X POST "{API_BASE}/users/1/interactions" \\\n'
             f'  -H "Content-Type: application/json" \\\n'
-            f'  -d \'{{"movie_id": 1, "rating": 4.0}}\'',
+            f'  -d \'{{"movie_id": <id_from_above>, "rating": 4.0}}\'',
             language="bash",
         )
 
     with st.expander("Record a rating (POST /users/{id}/interactions)", expanded=False):
-        c1, c2, c3 = st.columns(3)
-        with c1:
+        ru1, ru2 = st.columns(2)
+        with ru1:
             post_uid = st.number_input("User ID", min_value=1, value=1, key="post_uid")
-        with c2:
-            post_mid = st.number_input("Movie ID", min_value=1, value=1, key="post_mid")
-        with c3:
+        with ru2:
             post_rating = st.slider("Rating", 0.5, 5.0, 4.0, 0.5, key="post_rating")
-        st.caption("Unknown `movie_id` returns 404 from the API (DB must contain that movie).")
+
+        try:
+            movie_items = _fetch_movie_list(API_BASE)
+        except Exception as exc:  # noqa: BLE001
+            st.caption(str(exc))
+            movie_items = []
+
+        if movie_items:
+            picked = st.selectbox(
+                "Movie (Postgres)",
+                options=movie_items,
+                format_func=lambda m: f"{m['id']}: {str(m.get('title', ''))[:72]}",
+                key="post_movie_pick",
+            )
+            post_mid = int(picked["id"])
+        else:
+            st.warning(
+                "No movies in the database yet. Railway → **realtime-ml-api** → **Shell**: "
+                "`PYTHONPATH=. python scripts/ingest_movielens.py` — then refresh this page."
+            )
+            post_mid = int(
+                st.number_input(
+                    "Movie ID (manual)",
+                    min_value=1,
+                    value=1,
+                    key="post_mid",
+                    help="Only works if that id already exists in Postgres.",
+                )
+            )
         if st.button("Submit rating", type="primary", key="post_btn"):
             try:
                 r = requests.post(

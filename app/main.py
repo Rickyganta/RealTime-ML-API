@@ -17,6 +17,8 @@ from app.models.domain import Interaction, Movie, User
 from app.schemas.api import (
     ExplainResponse,
     InteractionIn,
+    MovieListResponse,
+    MovieRow,
     RecommendationItem,
     RecommendationResponse,
     RetrainResponse,
@@ -97,6 +99,19 @@ def health():
         "rate_limit_per_minute": settings.rate_limit_per_minute,
         "loadtest_bypass_configured": bool(settings.loadtest_bypass_token),
     }
+
+
+@app.get("/movies", response_model=MovieListResponse)
+def list_movies(
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """Ids/titles from Postgres (run `scripts/ingest_movielens.py` once so this is non-empty)."""
+    _, _, limiter = _ensure_services()
+    limiter.check(request)
+    rows = db.scalars(select(Movie).order_by(Movie.id).limit(limit)).all()
+    return MovieListResponse(items=[MovieRow(id=m.id, title=m.title) for m in rows])
 
 
 @app.post("/users/{id}/interactions")
