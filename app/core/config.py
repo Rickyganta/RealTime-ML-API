@@ -57,8 +57,11 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
     )
 
-    app_name: str = "real-time-ml-recommendation-api"
-    env: str = "dev"
+    app_name: str = Field(
+        default="real-time-ml-recommendation-api",
+        validation_alias=AliasChoices("APP_NAME", "app_name"),
+    )
+    env: str = Field(default="dev", validation_alias=AliasChoices("ENV", "env"))
     postgres_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("POSTGRES_URL", "postgres_url"),
@@ -85,6 +88,30 @@ class Settings(BaseSettings):
     ab_test_enabled: bool = True
     ab_test_default_bucket: str = "A"
     ab_test_seed: int = 42
+    ab_salt: str = Field(
+        default="portfolio-project-salt",
+        validation_alias=AliasChoices("AB_SALT", "ab_salt"),
+    )
+    default_hybrid_weight_cf: float = Field(
+        default=0.6,
+        validation_alias=AliasChoices("DEFAULT_HYBRID_WEIGHT_CF", "default_hybrid_weight_cf"),
+    )
+    movielens_path: str = Field(
+        default="data/ml-latest-small",
+        validation_alias=AliasChoices("MOVIELENS_PATH", "movielens_path"),
+    )
+    rate_limit_per_minute: int = Field(
+        default=100,
+        validation_alias=AliasChoices("RATE_LIMIT_PER_MINUTE", "rate_limit_per_minute"),
+    )
+    loadtest_bypass_token: str = Field(
+        default="",
+        validation_alias=AliasChoices("LOADTEST_BYPASS_TOKEN", "loadtest_bypass_token"),
+    )
+    cache_ttl_seconds: int = Field(
+        default=300,
+        validation_alias=AliasChoices("CACHE_TTL_SECONDS", "cache_ttl_seconds"),
+    )
 
     @model_validator(mode="after")
     def _resolve_db_and_redis(self) -> Settings:
